@@ -9,9 +9,7 @@ namespace CDFcore{
 			
 		List<byte> CDFbytesList = new List<byte>();
 		
-		public Dictionary<string, int> IntValues = new Dictionary<string, int>();
-		public Dictionary<string, double> DoubleValues = new Dictionary<string, double>();
-		public Dictionary<string, string> StringValues = new Dictionary<string, string>();
+		public Dictionary<string, List<byte>> DataValues = new Dictionary<string, List<byte>>();
 		
 		public CDFfile(){
 			
@@ -95,17 +93,22 @@ namespace CDFcore{
 						DataBytes.Add(CDFbytesList[j+cur]);
 					}
 					
-					if(TypeN == 1){
-						DataBytes.Reverse();
-						int Value = BitConverter.ToInt32(DataBytes.ToArray(), 0);
-						IntValues[ChunkName] = Value;
-					}else if(TypeN == 2){
-						double Value = BitConverter.ToDouble(DataBytes.ToArray(), 0);
-						DoubleValues[ChunkName] = Value;
-					}else if(TypeN == 3){
-						string Value = System.Text.Encoding.ASCII.GetString(DataBytes.ToArray()).Trim();
-						StringValues[ChunkName] = Value;
+					
+					
+					List<byte> DataList = new List<byte>();
+					//DataList.Add((byte)TypeN);
+					
+					for(int j = 0; j < DataBytes.Count; j++){
+						DataList.Add(DataBytes[j]);
 					}
+					
+					if(TypeN == 1){
+						DataList.Reverse();
+					}
+					
+					DataList.Insert(0, (byte)TypeN);
+					
+					DataValues[ChunkName] = DataList;
 					
 					cur = cur + DataLen;
 					
@@ -149,48 +152,52 @@ namespace CDFcore{
 			return 0;
 		}
 		
-		public int popData(){
-			IntValues.Clear();
-			DoubleValues.Clear();
-			StringValues.Clear();
+		public int addInt(string fieldName, int Value){
+			byte[] ByteVal = BitConverter.GetBytes(Value);
+			
+			List<byte> ListVal = new List<byte>();
+			ListVal.Add((byte)1);
+			
+			for(int j = 0; j < ByteVal.Length; j++){
+				ListVal.Add(ByteVal[j]);
+			}
+			
+			DataValues[fieldName] = ListVal;
 			
 			return 0;
 		}
 		
-		public int addInt(string fieldName, int data){
-			IntValues[fieldName] = data;
-			return 0;
-		}
-		
-		public int addDouble(string fieldName, double data){
-			DoubleValues[fieldName] = data;
-			return 0;
-		}
-		
-		public int addString(string fieldName, string data){
-			StringValues[fieldName] = data;
+		public int popData(){
+			DataValues.Clear();
+			
 			return 0;
 		}
 		
 		public int getInt(string fieldName){
-			if(IntValues.ContainsKey(fieldName)){
-				return IntValues[fieldName];
+			if(DataValues.ContainsKey(fieldName)){			
+				return BitConverter.ToInt32(DataValues[fieldName].ToArray(), 1);
 			}else{
 				return 0;
 			}
 		}
 		
 		public double getDouble(string fieldName){
-			if(DoubleValues.ContainsKey(fieldName)){
-				return DoubleValues[fieldName];
+			if(DataValues.ContainsKey(fieldName)){				
+				return BitConverter.ToDouble(DataValues[fieldName].ToArray(), 1);
 			}else{
-				return 0.0;
+				return 0;
 			}
 		}
 		
 		public string getString(string fieldName){
-			if(StringValues.ContainsKey(fieldName)){
-				return StringValues[fieldName];
+			if(DataValues.ContainsKey(fieldName)){
+				List<byte> Value = new List<byte>();
+				
+				for(int j = 1; j < DataValues[fieldName].Count; j++){
+					Value.Add(DataValues[fieldName][j]);
+				}
+				
+				return System.Text.Encoding.ASCII.GetString(Value.ToArray()).Trim();
 			}else{
 				return "";
 			}
