@@ -48,6 +48,10 @@ namespace CDFcore{
 				int CDFtableNameLen = (int)CDFbytesList[3];
 				int cur = 4+CDFtableNameLen;
 				while (cur < fileLen){
+					if(cur > fileLen){
+						throw new Exception("CDF: Index too big (file is potentially corrupted)");
+					}
+					
 					int ChunkNameLen = (int)CDFbytesList[cur];
 
 					byte[] ChunkNameBytes = new byte[ChunkNameLen];
@@ -148,7 +152,132 @@ namespace CDFcore{
 			}
 		}
 		
-		public int writeFile(string path){
+		public int writeFile(string path, string tableName){
+			List<byte> btw = new List<byte>();
+			
+			btw.Add((byte)67);
+			btw.Add((byte)68);
+			btw.Add((byte)70);
+			
+			byte TableNameLen = (byte)tableName.Length; //67 68 70
+			byte[] TableHeaderBytes = System.Text.Encoding.ASCII.GetBytes(tableName);
+			
+			btw.Add(TableNameLen);
+			for(int j = 0; j < TableHeaderBytes.Length; j++){
+				btw.Add(TableHeaderBytes[j]);
+			}
+
+			foreach(var Pair in DataValues){			
+				byte TypeByte = Pair.Value[0];
+				int TypeInt = (int)TypeByte;
+				byte ChunkNameLen = (byte)Pair.Key.Length; //Encoding.ASCII.GetBytes("ABC0000").Dump();
+				
+				int DataLenInt = 0;
+				
+				if(TypeInt == 1){
+					DataLenInt = 4;
+				}else if (TypeInt == 2){
+					DataLenInt = 8;
+				}else if (TypeInt == 3){
+					DataLenInt = Pair.Value.Count;
+				}
+				
+				byte[] DataLen = BitConverter.GetBytes(DataLenInt);
+				
+				byte[] ChunkNameBytes = System.Text.Encoding.ASCII.GetBytes(Pair.Key);
+				
+				byte[] ValueBytes = new byte[Pair.Value.Count - 1];
+				
+				for(int j = 1; j < Pair.Value.Count; j++){
+					ValueBytes[j-1] = Pair.Value[j];
+				}
+				
+				btw.Add(ChunkNameLen);
+				for(int j = 0; j < ChunkNameBytes.Length; j++){
+					btw.Add(ChunkNameBytes[j]);
+				}
+				btw.Add(TypeByte);
+				
+				List<byte> DataLenList = new List<byte>(DataLen);
+				DataLenList.Reverse();
+				
+				for(int j = 0; j < DataLenList.Count; j++){
+					btw.Add(DataLenList[j]);
+				}
+				
+				List<byte> ValueBytesList = new List<byte>(ValueBytes);
+				
+				if(TypeInt == 1){
+					ValueBytesList.Reverse();
+				}
+				
+				for(int j = 0; j < ValueBytesList.Count; j++){
+					btw.Add(ValueBytesList[j]);
+				}
+			}
+			
+			FileStream FileObj = new FileStream(path, FileMode.Create);
+			FileObj.Write(btw.ToArray(), 0, btw.Count);
+			FileObj.Close();
+			
+			return 0;
+		}
+		
+		public int writeFileAppend(string path){
+			List<byte> btw = new List<byte>();
+			foreach(var Pair in DataValues){			
+				byte TypeByte = Pair.Value[0];
+				int TypeInt = (int)TypeByte;
+				byte ChunkNameLen = (byte)Pair.Key.Length; //Encoding.ASCII.GetBytes("ABC0000").Dump();
+				
+				int DataLenInt = 0;
+				
+				if(TypeInt == 1){
+					DataLenInt = 4;
+				}else if (TypeInt == 2){
+					DataLenInt = 8;
+				}else if (TypeInt == 3){
+					DataLenInt = Pair.Value.Count;
+				}
+				
+				byte[] DataLen = BitConverter.GetBytes(DataLenInt);
+				
+				byte[] ChunkNameBytes = System.Text.Encoding.ASCII.GetBytes(Pair.Key);
+				
+				byte[] ValueBytes = new byte[Pair.Value.Count - 1];
+				
+				for(int j = 1; j < Pair.Value.Count; j++){
+					ValueBytes[j-1] = Pair.Value[j];
+				}
+				
+				btw.Add(ChunkNameLen);
+				for(int j = 0; j < ChunkNameBytes.Length; j++){
+					btw.Add(ChunkNameBytes[j]);
+				}
+				btw.Add(TypeByte);
+				
+				List<byte> DataLenList = new List<byte>(DataLen);
+				DataLenList.Reverse();
+				
+				for(int j = 0; j < DataLenList.Count; j++){
+					btw.Add(DataLenList[j]);
+				}
+				
+				List<byte> ValueBytesList = new List<byte>(ValueBytes);
+				
+				if(TypeInt == 1){
+					ValueBytesList.Reverse();
+				}
+				
+				for(int j = 0; j < ValueBytesList.Count; j++){
+					btw.Add(ValueBytesList[j]);
+				}
+			}
+			
+			FileStream FileObj = new FileStream(path, FileMode.Append);
+			FileObj.Write(btw.ToArray(), 0, btw.Count);
+			FileObj.Close();
+			
 			return 0;
 		}
 		
@@ -163,6 +292,35 @@ namespace CDFcore{
 			}
 			
 			DataValues[fieldName] = ListVal;
+			
+			return 0;
+		}
+		
+		public int addDouble(string fieldName, double Value){
+			byte[] ByteVal = BitConverter.GetBytes(Value);
+			
+			List<byte> ListVal = new List<byte>();
+			ListVal.Add((byte)2);
+			
+			for(int j = 0; j < ByteVal.Length; j++){
+				ListVal.Add(ByteVal[j]);
+			}
+			
+			DataValues[fieldName] = ListVal;
+			
+			return 0;
+		}
+		
+		public int addString(string fieldName, string Value){
+			byte[] ByteVal = new byte[Value.Length+1];
+			
+			ByteVal[0] = (byte)3;
+			
+			for(int j = 1; j < Value.Length; j++){
+				ByteVal[j] = (byte)Value[j-1];
+			}
+			
+			DataValues[fieldName] = new List<byte>(ByteVal);
 			
 			return 0;
 		}
@@ -182,7 +340,7 @@ namespace CDFcore{
 		}
 		
 		public double getDouble(string fieldName){
-			if(DataValues.ContainsKey(fieldName)){				
+			if(DataValues.ContainsKey(fieldName)){	
 				return BitConverter.ToDouble(DataValues[fieldName].ToArray(), 1);
 			}else{
 				return 0;

@@ -8,7 +8,6 @@ using CDFcore;
 
 namespace CDFcoreShell{	
     class Program{	
-		
 		static void Loop(){
 			Console.WriteLine("CDF core v.1");
 			while(true){
@@ -51,23 +50,30 @@ namespace CDFcoreShell{
 							}
 						}
 					}
-				}/* else if(words[0] == "add"){
-					if(words.Length == 4){
-						string Type = words[1].ToLower();
-						string fieldName = words[2];
-						string Value = words[3];
+				}else if(words[0] == "add"){
+					if(words.Length == 5){
+						string Path = words[1];
+						string Type = words[2].ToLower();
+						string fieldName = words[3];
+						string Value = words[4];
+						
+						CDFfile obj = new CDFfile();
 						
 						if(Type == "int"){						
 							int IntVal = 0;
-							int.TryParse(Value, IntVal);
-							obj.addInt(IntVal);
+							int.TryParse(Value, out IntVal);
+							obj.addInt(fieldName, IntVal);
+							
+							Console.WriteLine(obj.getInt(fieldName));
 						}
+						
+						obj.writeFileAppend(Path);
 					}
-				} */
+				}
 			}
 		}
 		
-        static void Main(string[] args){
+        static void Main(string[] args){		
 			if(args.Length == 0){
 				Loop();
 			}
